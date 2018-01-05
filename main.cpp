@@ -1,20 +1,49 @@
 #include <iostream>
-#include <string.h>
 #include <curl/curl.h>
+#include <thread>
+#include <future>
+using namespace std;
 
-
-int main() {
-  CURL *curl = curl_easy_init();
-  if(curl) {
-    CURLcode res;
-    curl_easy_setopt(curl, CURLOPT_NOBODY, true);
-    curl_easy_setopt(curl, CURLOPT_URL, "http://google.ru");
-    res = curl_easy_perform(curl);
-    if(res == CURLE_OK) {
-      long response_code;
-      curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
-      std::cout << "Responce code of http://google.ru "<< response_code << std::endl;
+int main(int argc, char* argv[])
+{
+    if(argc < 2){
+        cout << "Error" << endl;
+        return 0;
     }
-    curl_easy_cleanup(curl);
-  }
+
+    char* name = argv[1];
+    CURL *curl;
+
+    curl = curl_easy_init();
+    if(curl) {
+        curl_easy_setopt(curl, CURLOPT_URL, name);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_NOBODY, true);
+
+std::promise<long> promise;
+            auto resp = promise.get_future();
+
+            std::thread req([curl, &promise]() {
+              auto res = curl_easy_perform(curl);
+              long check_code;
+
+
+            if(res == CURLE_OK) {
+
+              curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &check_code);
+              promise.set_value(check_code);
+
+            }
+          });
+
+            req.detach();
+
+            auto response_code = resp.get();
+
+            std::cout << "Response code: " << response_code << std::endl;
+
+            curl_easy_cleanup(curl);
+    }
+    return 0;
 }
